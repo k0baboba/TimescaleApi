@@ -19,7 +19,6 @@ namespace TimescaleApi.Services
 
         public async Task<CsvProcessingResult> ProcessFileAsync(string fileName, Stream csvStream)
         {
-            // 1. Валидация + парсинг (валидатор делает оба шага)
             var validationResult = _validator.Validate(csvStream);
             if (!validationResult.IsValid)
             {
@@ -32,11 +31,9 @@ namespace TimescaleApi.Services
 
             var records = validationResult.Records;
 
-            // 2. Транзакция: удалить старые + добавить новые + рассчитать агрегаты
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Удалить старые записи по FileName
                 await _context.Values
                     .Where(v => v.FileName == fileName)
                     .ExecuteDeleteAsync();
@@ -45,7 +42,6 @@ namespace TimescaleApi.Services
                     .Where(r => r.FileName == fileName)
                     .ExecuteDeleteAsync();
 
-                // Добавить новые Values
                 var valuesToAdd = records.Select(r => new Values
                 {
                     FileName = fileName,
@@ -57,7 +53,6 @@ namespace TimescaleApi.Services
                 _context.Values.AddRange(valuesToAdd);
                 await _context.SaveChangesAsync();
 
-                // Рассчитать агрегаты в памяти
                 var result = CalculateResult(fileName, records);
 
                 _context.Results.Add(result);
