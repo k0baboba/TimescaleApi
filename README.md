@@ -140,7 +140,7 @@ dotnet test
 
 ### Swagger
 
-![Swagger](TimescaleApi/TimescaleApi/screenshots/swagger1.png)
+![Swagger](TimescaleApi/screenshots/swagger1.png)
 ![Swagger](screenshots/swagger2.png)
 ![Swagger](screenshots/swagger3.png)
 
@@ -151,3 +151,4 @@ dotnet test
 ### База данных — таблица Results
 
 ![Results](screenshots/results.png)
+
