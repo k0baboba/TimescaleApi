@@ -141,14 +141,14 @@ dotnet test
 ### Swagger
 
 ![Swagger](TimescaleApi/screenshots/swagger1.png)
-![Swagger](screenshots/swagger2.png)
-![Swagger](screenshots/swagger3.png)
+![Swagger](TimescaleApi/screenshots/swagger2.png)
+![Swagger](TimescaleApi/screenshots/swagger3.png)
 
 ### База данных — таблица Values
 
-![Values](screenshots/values.png)
+![Values](TimescaleApi/screenshots/values.png)
 
 ### База данных — таблица Results
 
-![Results](screenshots/results.png)
+![Results](TimescaleApi/screenshots/results.png)
 
