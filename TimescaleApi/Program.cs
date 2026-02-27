@@ -1,11 +1,23 @@
+using Microsoft.EntityFrameworkCore;
+using TimescaleApi.Data;
+using TimescaleApi.Services;
+using TimescaleApi.Validators;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Register DbContext using PostgreSQL
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// Register application services
+builder.Services.AddScoped<CsvValidator>();
+builder.Services.AddScoped<ICsvProcessingService, CsvProcessingService>();
 
 var app = builder.Build();
 
