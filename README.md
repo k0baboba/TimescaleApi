@@ -140,7 +140,7 @@ dotnet test
 
 ### Swagger
 
-![Swagger](screenshots/swagger1.png)
+![Swagger](TimescaleApi/TimescaleApi/screenshots/swagger1.png)
 ![Swagger](screenshots/swagger2.png)
 ![Swagger](screenshots/swagger3.png)
 
