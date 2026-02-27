@@ -12,7 +12,7 @@ using TimescaleApi.Data;
 namespace TimescaleApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260222103555_InitialCreate")]
+    [Migration("20260227184159_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

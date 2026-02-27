@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Linq;
 using TimescaleApi.DTOs;
 using TimescaleApi.Models;
 
@@ -7,6 +6,8 @@ namespace TimescaleApi.Validators
 {
     public class CsvValidator
     {
+        private const int MaxRowCount = 10_000;
+
         public static readonly DateTime MinDate = new(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         public static readonly string[] DateFormats =
             [
@@ -19,131 +20,104 @@ namespace TimescaleApi.Validators
         public CsvValidationResult Validate(Stream csvStream)
         {
             var result = new CsvValidationResult();
+            using var reader = new StreamReader(csvStream);
 
-            if (csvStream is null || !csvStream.CanRead)
+            var header = reader.ReadLine();
+            if (header is null)
             {
-                result.Errors.Add("CSV stream is null or unreadable.");
+                result.Errors.Add("File is empty.");
                 return result;
             }
 
-            using var reader = new StreamReader(csvStream, leaveOpen: true);
+            int lineNumber = 1;
+            int rowCount = 0;
+            string? line;
 
-            var nowUtc = DateTime.UtcNow;
-            var headerProcessed = false;
-            var lineNumber = 0;
-
-            while (true)
+            while ((line = reader.ReadLine()) != null)
             {
-                var line = reader.ReadLine();
-                if (line is null)
-                {
-                    break;
-                }
-
                 lineNumber++;
 
-                if (!headerProcessed)
-                {
-                    headerProcessed = true;
-
-                    if (IsHeader(line))
-                    {
-                        continue;
-                    }
-                }
-
                 if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                rowCount++;
+
+                if (rowCount > MaxRowCount)
                 {
-                    result.Errors.Add($"Line {lineNumber}: empty line.");
+                    result.Records.Clear();
+                    result.Errors.Add($"File contains more than {MaxRowCount} rows.");
                     return result;
                 }
 
-                if (!TryParseRow(line, lineNumber, nowUtc, result, out var record))
+                var parts = line.Split(';');
+                if (parts.Length != 3)
                 {
-                    return result;
+                    result.Errors.Add($"Line {lineNumber}: expected 3 values, got {parts.Length}.");
+                    continue;
                 }
 
-                result.Records.Add(record!);
-
-                if (result.Records.Count > 10_000)
+                if (!DateTime.TryParseExact(parts[0].Trim(), DateFormats,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal, out var date))
                 {
-                    result.Errors.Add("CSV contains more than 10,000 data rows.");
-                    return result;
+                    result.Errors.Add($"Line {lineNumber}: invalid date format.");
+                    continue;
                 }
+
+                if (date < MinDate)
+                {
+                    result.Errors.Add($"Line {lineNumber}: date cannot be earlier than 2000-01-01.");
+                    continue;
+                }
+
+                if (date > DateTime.UtcNow)
+                {
+                    result.Errors.Add($"Line {lineNumber}: date cannot be in the future.");
+                    continue;
+                }
+
+                var execTimeStr = parts[1].Trim().Replace(',', '.');
+                if (!double.TryParse(execTimeStr, NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out var executionTime))
+                {
+                    result.Errors.Add($"Line {lineNumber}: invalid execution time format.");
+                    continue;
+                }
+
+                if (executionTime < 0)
+                {
+                    result.Errors.Add($"Line {lineNumber}: execution time cannot be negative.");
+                    continue;
+                }
+
+                var valueStr = parts[2].Trim().Replace(',', '.');
+                if (!double.TryParse(valueStr, NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out var value))
+                {
+                    result.Errors.Add($"Line {lineNumber}: invalid value format.");
+                    continue;
+                }
+
+                if (value < 0)
+                {
+                    result.Errors.Add($"Line {lineNumber}: value cannot be negative.");
+                    continue;
+                }
+
+                result.Records.Add(new CsvRecord
+                {
+                    Date = date,
+                    ExecutionTime = executionTime,
+                    Value = value
+                });
             }
 
-            if (result.Records.Count < 1)
+            if (rowCount == 0)
             {
-                result.Errors.Add("CSV contains no data rows.");
+                result.Errors.Add("File contains no data rows.");
             }
 
             return result;
-        }
-
-        private static bool IsHeader(string line)
-        {
-            return string.Equals(line.Trim(), "Date;ExecutionTime;Value", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool TryParseRow(
-            string line,
-            int lineNumber,
-            DateTime nowUtc,
-            CsvValidationResult result,
-            out CsvRecord? record)
-        {
-            record = null;
-
-            var parts = line.Split(';', StringSplitOptions.None);
-            if (parts.Length != 3)
-            {
-                result.Errors.Add($"Line {lineNumber}: expected 3 fields separated by ';'.");
-                return false;
-            }
-
-            if (parts.Any(string.IsNullOrWhiteSpace))
-            {
-                result.Errors.Add($"Line {lineNumber}: all fields must be present.");
-                return false;
-            }
-
-            if (!DateTime.TryParseExact(
-                    parts[0].Trim(),
-                    DateFormats,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                    out var date))
-            {
-                result.Errors.Add($"Line {lineNumber}: invalid Date format.");
-                return false;
-            }
-
-            if (date < MinDate || date > nowUtc)
-            {
-                result.Errors.Add($"Line {lineNumber}: Date must be between 2000-01-01 and now (UTC).");
-                return false;
-            }
-
-            if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var executionTime) || executionTime < 0)
-            {
-                result.Errors.Add($"Line {lineNumber}: ExecutionTime must be a number >= 0.");
-                return false;
-            }
-
-            if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || value < 0)
-            {
-                result.Errors.Add($"Line {lineNumber}: Value must be a number >= 0.");
-                return false;
-            }
-
-            record = new CsvRecord
-            {
-                Date = date,
-                ExecutionTime = executionTime,
-                Value = value
-            };
-
-            return true;
         }
     }
 }

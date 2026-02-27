@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TimescaleApi.Data;
+using TimescaleApi.Services;
+using TimescaleApi.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,10 @@ builder.Services.AddSwaggerGen();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+// Register application services
+builder.Services.AddScoped<CsvValidator>();
+builder.Services.AddScoped<ICsvProcessingService, CsvProcessingService>();
 
 var app = builder.Build();
 

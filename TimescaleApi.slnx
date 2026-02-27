@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="TimescaleApi.Tests/TimescaleApi.Tests.csproj" />
   <Project Path="TimescaleApi/TimescaleApi.csproj" />
 </Solution>
